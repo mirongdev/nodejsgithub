@@ -1,9 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy Node.js App
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main # Workflow akan berjalan setiap ada perubahan pada branch 'main'
 
 permissions:
   contents: read
@@ -17,30 +17,51 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v3
 
-      - name: Use Node.js 18
+    steps:
+      # Checkout kode dari repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Setup Node.js environment
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: '18' # Versi Node.js yang digunakan
+          cache: 'npm' # Cache node_modules untuk mempercepat instalasi
 
+      # Install dependencies
       - name: Install dependencies
         run: npm install
 
-      - name: Build website
+      # Jalankan build (jika aplikasi Anda memerlukan build step)
+      - name: Build
         run: npm run build
+
+      # Tes aplikasi (opsional)
+      - name: Run tests
+        run: npm test
+      
+      # Deploy aplikasi ke server
+      - name: Deploy to Server
         env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GCLIENT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # Ditetapkan di GitHub Secrets
+          SERVER_USER: ${{ secrets.SERVER_USER }}         # Ditetapkan di GitHub Secrets
+          SERVER_IP: ${{ secrets.SERVER_IP }}             # Ditetapkan di GitHub Secrets
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}         # Ditetapkan di GitHub Secrets
+        run: |
+          # Setup SSH untuk koneksi ke server
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
+          
+          # Kirim file ke server menggunakan rsync
+          rsync -avz --delete --exclude 'node_modules' ./ $SERVER_USER@$SERVER_IP:$DEPLOY_PATH
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          path: './build' # Sesuaikan dengan folder build dari framework Anda
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v1
+          # SSH ke server untuk restart service (misal dengan PM2 atau systemd)
+          ssh $SERVER_USER@$SERVER_IP << 'EOF'
+            cd $DEPLOY_PATH
+            npm install --production
+            pm2 restart app.js # Ganti ini dengan perintah yang sesuai untuk aplikasi Anda
+          EOF
