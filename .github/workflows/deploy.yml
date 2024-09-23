@@ -35,12 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm install # atau 'yarn install'
 
-      # Jalankan build (jika aplikasi Anda memerlukan build step)
-      # Jika tidak ada proses build, Anda bisa menghapus step ini
+      # Jalankan build (jika diperlukan)
       - name: Build app
         run: npm run build || echo "No build step required"
-        env:
-          NODE_ENV: production # Mengatur variabel lingkungan jika diperlukan
 
       # List files setelah install dan build (opsional)
       - name: List files
@@ -58,14 +55,14 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
-          
+          ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts || echo "ssh-keyscan failed"
+
           # Kirim file ke server menggunakan rsync
           rsync -avz --delete --exclude 'node_modules' ./ $SERVER_USER@$SERVER_IP:$DEPLOY_PATH
 
-          # SSH ke server untuk restart service (misal dengan PM2 atau systemd)
+          # SSH ke server untuk install dependencies dan jalankan aplikasi
           ssh $SERVER_USER@$SERVER_IP << 'EOF'
             cd $DEPLOY_PATH
             npm install --production
-            pm2 restart app.js # Ganti ini dengan perintah yang sesuai untuk aplikasi Anda
+            npm run start # Ganti ini dengan perintah yang sesuai untuk aplikasi Anda
           EOF
