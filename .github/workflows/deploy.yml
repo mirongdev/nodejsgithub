@@ -44,25 +44,7 @@ jobs:
         run: ls -la
 
       # Deploy aplikasi ke server menggunakan SSH dan rsync
-      - name: Deploy to Server
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # Diatur di GitHub Secrets
-          SERVER_USER: ${{ secrets.SERVER_USER }}         # Diatur di GitHub Secrets
-          SERVER_IP: ${{ secrets.SERVER_IP }}             # Diatur di GitHub Secrets
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}         # Diatur di GitHub Secrets
-        run: |
-          # Setup SSH untuk koneksi ke server
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts || echo "ssh-keyscan failed"
 
-          # Kirim file ke server menggunakan rsync
-          rsync -avz --delete --exclude 'node_modules' ./ $SERVER_USER@$SERVER_IP:$DEPLOY_PATH
-
-          # SSH ke server untuk install dependencies dan jalankan aplikasi
-          ssh $SERVER_USER@$SERVER_IP << 'EOF'
-            cd $DEPLOY_PATH
-            npm install --production
-            npm run start # Ganti ini dengan perintah yang sesuai untuk aplikasi Anda
-          EOF
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
