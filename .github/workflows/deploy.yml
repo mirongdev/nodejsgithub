@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18' # Versi Node.js yang digunakan
-          cache: 'npm' # Cache node_modules untuk mempercepat instalasi
+
 
       # Install dependencies
       - name: Install dependencies
