@@ -2,8 +2,8 @@ name: Deploy Node.js App
 
 on:
   push:
-    branches:
-      - main # Workflow akan berjalan setiap ada perubahan pada branch 'main'
+    branches: [main] # Workflow akan berjalan setiap ada perubahan pada branch 'main'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,12 +11,14 @@ permissions:
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: 'deploy'
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: node-deploy
 
     steps:
       # Checkout kode dari repository
@@ -24,31 +26,33 @@ jobs:
         uses: actions/checkout@v3
 
       # Setup Node.js environment
-      - name: Set up Node.js
+      - name: Use Node.js 18
         uses: actions/setup-node@v3
         with:
-          node-version: '18' # Versi Node.js yang digunakan
-
+          node-version: 18
 
       # Install dependencies
       - name: Install dependencies
-        run: npm install
+        run: npm install # atau 'yarn install'
 
       # Jalankan build (jika aplikasi Anda memerlukan build step)
-      - name: Build
-        run: npm run build
+      # Jika tidak ada proses build, Anda bisa menghapus step ini
+      - name: Build app
+        run: npm run build || echo "No build step required"
+        env:
+          NODE_ENV: production # Mengatur variabel lingkungan jika diperlukan
 
-      # Tes aplikasi (opsional)
-      - name: Run tests
-        run: npm test
-      
-      # Deploy aplikasi ke server
+      # List files setelah install dan build (opsional)
+      - name: List files
+        run: ls -la
+
+      # Deploy aplikasi ke server menggunakan SSH dan rsync
       - name: Deploy to Server
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # Ditetapkan di GitHub Secrets
-          SERVER_USER: ${{ secrets.SERVER_USER }}         # Ditetapkan di GitHub Secrets
-          SERVER_IP: ${{ secrets.SERVER_IP }}             # Ditetapkan di GitHub Secrets
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}         # Ditetapkan di GitHub Secrets
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # Diatur di GitHub Secrets
+          SERVER_USER: ${{ secrets.SERVER_USER }}         # Diatur di GitHub Secrets
+          SERVER_IP: ${{ secrets.SERVER_IP }}             # Diatur di GitHub Secrets
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}         # Diatur di GitHub Secrets
         run: |
           # Setup SSH untuk koneksi ke server
           mkdir -p ~/.ssh
