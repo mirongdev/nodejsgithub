@@ -1,0 +1,57 @@
+name: Deploy Node.js App
+
+on:
+  push:
+    branches:
+      - main # Workflow akan berjalan setiap ada perubahan pada branch 'main'
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout kode dari repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Setup Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Versi Node.js yang Anda gunakan
+          cache: 'npm' # Cache node_modules untuk mempercepat instalasi
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # Jalankan build (jika aplikasi Anda memerlukan build step)
+      - name: Build
+        run: npm run build
+
+      # Tes aplikasi (opsional)
+      - name: Run tests
+        run: npm test
+      
+      # Deploy aplikasi ke server
+      - name: Deploy to Server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }} # Path ke folder di server
+        run: |
+          # Setup SSH untuk koneksi ke server
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
+          
+          # Kirim file ke server menggunakan rsync
+          rsync -avz --delete --exclude 'node_modules' ./ $SERVER_USER@$SERVER_IP:$DEPLOY_PATH
+
+          # SSH ke server untuk restart service (misal dengan PM2 atau systemd)
+          ssh $SERVER_USER@$SERVER_IP << 'EOF'
+            cd $DEPLOY_PATH
+            npm install --production
+            pm2 restart app.js # Ganti ini dengan perintah yang sesuai untuk aplikasi Anda
+          EOF
