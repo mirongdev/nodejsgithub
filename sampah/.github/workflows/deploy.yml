@@ -1,0 +1,68 @@
+name: Deploy Node.js App
+
+on:
+  push:
+    branches: [main] # Workflow akan berjalan setiap ada perubahan pada branch 'main'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'deploy'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: node-deploy
+
+    steps:
+      # Checkout kode dari repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Setup Node.js environment
+      - name: Use Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install # atau 'yarn install'
+
+      # Jalankan build (jika diperlukan)
+      - name: Build app
+        run: npm run build || echo "No build step required"
+
+      # List files setelah install dan build (opsional)
+      - name: List files
+        run: ls -la
+
+      # Deploy aplikasi ke server menggunakan SSH dan rsync
+      - name: Deploy to Server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # Diatur di GitHub Secrets
+          SERVER_USER: ${{ secrets.SERVER_USER }}         # Diatur di GitHub Secrets
+          SERVER_IP: ${{ secrets.SERVER_IP }}             # Diatur di GitHub Secrets
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}         # Diatur di GitHub Secrets
+        run: |
+          # Setup SSH untuk koneksi ke server
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts || echo "ssh-keyscan failed"
+
+          # Kirim file ke server menggunakan rsync
+          rsync -avz --delete --exclude 'node_modules' ./ $SERVER_USER@$SERVER_IP:$DEPLOY_PATH
+
+          # SSH ke server untuk install dependencies dan jalankan aplikasi
+          ssh $SERVER_USER@$SERVER_IP << 'EOF'
+            cd $DEPLOY_PATH
+            npm install --production
+            npm run start # Ganti ini dengan perintah yang sesuai untuk aplikasi Anda
+          EOF
