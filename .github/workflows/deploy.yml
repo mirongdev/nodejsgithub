@@ -1,9 +1,9 @@
-name: Deploy Node.js App to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"] # Jalankan saat ada perubahan di branch 'main'
-  workflow_dispatch: # Izinkan eksekusi manual
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,41 +11,34 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: 'pages'
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      # Setup Node.js
-      - name: Setup Node.js
+      - name: Use Node.js 18
         uses: actions/setup-node@v3
         with:
-          node-version: '18' # Versi Node.js yang digunakan
+          node-version: 18
 
-      # Install dependencies
       - name: Install dependencies
-        run: npm install
+        run: npm install # atau 'yarn install'
 
-      # Build application (jika ada build step)
-      - name: Build app
-        run: npm run build || echo "No build step required"
+      - name: Build website
+        run: npm run build # Memanggil build Parcel
 
-      # Setup Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      # Upload artifact
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v1
         with:
-          path: '.' # Upload seluruh repository
+          path: './dist' # Folder output build Parcel
 
-      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v1
